@@ -1,0 +1,61 @@
+name: CI (313554006)
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-313554006-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck / Prettier / Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Prettier check
+        run: npm run format:check
+
+      # vitest 內建 reporter：
+      #  - default        : log 中可讀的測試輸出
+      #  - junit          : 產生 reports/vitest-junit.xml
+      #  - github-actions : 測試失敗時於 Actions 頁面產生 inline 註記
+      - name: Run tests (JUnit report)
+        run: |
+          mkdir -p reports
+          npm test -- --reporter=default --reporter=github-actions --reporter=junit --outputFile.junit=reports/vitest-junit.xml
+
+      # 自寫 script 解析 JUnit XML，寫入 $GITHUB_STEP_SUMMARY，
+      # 讓測試結果顯示在 Actions 結果頁面（不依賴任何第三方 action）。
+      # if: always() -> 即使測試失敗也要產生摘要
+      - name: Generate test summary
+        if: always()
+        run: node scripts/junit-summary.mjs reports/vitest-junit.xml
+
+      - name: Upload test report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-junit-report
+          path: reports/
+          if-no-files-found: error
