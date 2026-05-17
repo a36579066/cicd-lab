@@ -9,7 +9,8 @@ describe('Fastify app', () => {
       url: '/health'
     });
 
-    expect(response.statusCode).toBe(200);
+    // [DEMO] 故意製造的測試失敗：實際回傳 200，這裡斷言 500
+    expect(response.statusCode).toBe(500);
     expect(response.json()).toEqual({ status: 'ok' });
     await app.close();
   });
